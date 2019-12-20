@@ -1,0 +1,66 @@
+version: '3'
+services:
+
+    mysql: &mysql
+        image: mysql:5.7
+        ports:
+            - "3307:3306"
+        volumes:
+            - ./mysql/data/m1:/var/lib/mysql
+            - ./mysql/master.cnf:/etc/mysql/conf.d/master.cnf
+        environment:
+            - MYSQL_ROOT_PASSWORD=123456
+            - TZ=Asia/Shanghai
+        networks:
+            press:
+                ipv4_address: 172.39.1.2
+
+    wordpress:
+        depends_on:
+            - mysql
+        image: wordpress:5.0.3-php7.2-fpm
+        container_name: wordpress
+        ports:
+            - '9000:9000'
+        volumes:
+            - ./www:/var/www/html
+        environment:
+            - TZ=Asia/Shanghai
+            - WORDPRESS_DB_NAME=wordpress
+            - WORDPRESS_TABLE_PREFIX=wp_
+            - WORDPRESS_DB_HOST=mysql:3306
+            - WORDPRESS_DB_USER=root
+            - WORDPRESS_DB_PASSWORD=123456
+        links:
+            - mysql
+        networks:
+            - press
+        restart: always
+        logging:
+            options:
+                max-size: 50m
+
+    nginx:
+        image: nginx:1.15.8
+        ports:
+            - "80:80"
+            - "443:443"
+        restart: always
+        networks:
+            - press
+        volumes:
+            - ./nginx/wordpress.conf:/etc/nginx/conf.d/wordpress.conf
+            - ./www:/var/www/html
+            - ./logs/nginx:/var/log/nginx
+        links:
+            - wordpress
+        logging:
+            options:
+                max-size: 50m
+
+networks:
+    press:
+        ipam:
+            driver: default
+            config:
+                - subnet: 172.39.0.0/16
